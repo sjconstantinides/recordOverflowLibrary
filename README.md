@@ -5,28 +5,28 @@ This package is a self contained example of how to handle record overflow for Ae
 The basic components of the sample:
 	- DataAccessMethods.java is the main entry point to the record overflow constructs. 
 		Currently available access methods:
-		- insertNewTxn( key, txnAmt)
+		- insertNewDataNode( userKey, amt)
 			where key is a unique String identifyer to associate an Aerospike record to be stored.
-			txnAmt is a floating point number to be inserted.
+			amt is a floating point number to be inserted.
 			The current timestamp is associated with the inserted data.
-		- retrieveRecentTransactions( key, numTrans )
+		- retrieveRecentElements( key, numElts )
 			where key again is the unique String identifyer
-			numTrans is the number of transactions to return going back in time. 
+			numElts is the number of elements to return going back in time. 
 
 	Variables are used to calculate the current size of the record and the additional space needed.
 	Those variables are currently hard coded to specific values to force record overflow to be able to test. 
 	Those variables are defined at the top of the DataAccessMethods.java file, you can change those as needed
 		Currently these are set to overflow at 131,072 bytes or 128 KB (RECORD_SIZE).
-		Also to force overflow the base transaction size is set to 1500 bytes (SIZEOF_TRANS_NODE)
+		Also to force overflow the base DataNode size is set to 1500 bytes (SIZEOF_ELEMENT_NODE)
 
 	An idea for future enhancements would be to put these values into some .properties file and read them in on startup. This would also allow for you to tune your application to balance between record size, and retrieval time.
 
-	- The actual structures that contain the transaction data and the meta data structures
+	- The actual structures that contain the element data and the meta data structures
 		DataNode: class containing the data used to store and traverse the data graph structure
-		TopRecord: class containing the transaction graph, and mapper(table of contents) information
+		TopRecord: class containing the data element graph, and mapper(table of contents) information
 		SubRecord: overflow class structure to hold the data that overflows the current record
 	- There are Mapper classes contained in the package to map the objects to be stored in Aerospike.
-	- There is a JUnit test driver included: TestInsertTransaction.java
+	- There is a JUnit test driver included: TestInsertElement.java
 		
 ```
 		
@@ -64,7 +64,7 @@ namespace lock_ns {
 		
 ### Test data
 The test data can be generated to simulate a real data set.
-The assumption is that in an actual transaction system, the transaction IDs will be created externally to this code and sent in. For test purposes, the creation date of the transaction is used as the transaction ID
+The assumption is that in an actual system, the element IDs will be created externally to this code and sent in. For test purposes, the creation date of the element is used as the element ID
 
 
 
@@ -72,12 +72,12 @@ The assumption is that in an actual transaction system, the transaction IDs will
 
 ```
 	- You will need to include the recordOverflow package into your project description and into your project hierarchy
-	- TestInsertTransaction.java contains the basic information to connect to an Aerospike database and can be run via standard JUnit commands. You can use the code within TestInsertTransaction.java as a guide for your own code.
+	- TestInsertElement.java contains the basic information to connect to an Aerospike database and can be run via standard JUnit commands. You can use the code within TestInsertElement.java as a guide for your own code.
 	- The needed components are:
 		IP address of your Aerospike server
 		name of the basic namespace
 		name of the strong consistency namespace
-	  Currently these are hard coded into the TestInsertTransaction.java and will need to be changed to match your environment. These are typically set via run time command line arguments. (see the Aerospike examples for this specifically)
+	  Currently these are hard coded into the TestInsertElement.java and will need to be changed to match your environment. These are typically set via run time command line arguments. (see the Aerospike examples for this specifically)
 	  The AerospikeClient reference, and both namespaces are used in the constructor call to the DataAccessMethods class.
 
 	
@@ -115,8 +115,8 @@ aql> select arrMapper from test
 This is a representation of the ArrayList<ArrayList<String>> within TopRecord. The inner List is defined as follows:
 ```
 	Element 0: record key (user key, not Aerospike Key)
-	Element 1: starting date of all the transaction contained in this record
-	Element 2: ending date of all the transactions contained in this record
+	Element 1: starting date of all the elements contained in this record
+	Element 2: ending date of all the elements contained in this record
 ```
 
 Notice the '-1' as the record key for the second tuple. This indicates a subrecord was created with the '-1' extention. As more overflow records are created the '-n' will increase. The larger the 'n': the more current the data is. The smaller the 'n': the farther back in time you go.

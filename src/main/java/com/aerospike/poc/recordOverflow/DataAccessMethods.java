@@ -5,7 +5,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Random;
 
 import com.aerospike.client.AerospikeException;
 import com.aerospike.client.Bin;
@@ -18,44 +17,41 @@ import com.aerospike.poc.recordOverflow.mappers.TopRecordMapper;
 import com.aerospike.poc.recordOverflow.model.DataNode;
 import com.aerospike.poc.recordOverflow.model.SubRecord;
 import com.aerospike.poc.recordOverflow.model.TopRecord;
-import com.aerospike.poc.seed.SeederUtils;
 
 public class DataAccessMethods {
 	
 	private IAerospikeClient database;
 	private String nameSpace;
 	private String lockNameSpace;
-	private static final SeederUtils utils = new SeederUtils();
-	private String acctId;
+	private String userKey;
 	private final SubRecordMapper mapper = new SubRecordMapper();
 	
 	// TODO: make the following parameters that can be set via the .properties file
-	private final static int SIZEOF_TRANS_NODE = 1500;
+	private final static int SIZEOF_ELEMENT_NODE = 1500;
 	private final long RECORD_SIZE = 131072;		// 128 KB
 	private final int MAPPERS_SIZE = 72;
 	private final int T_RECORD_SIZE = 48;	// 8 bytes per field
 	private int BLOCK_MULTIPLIER = 1;
 	
-	public String getAcctId() {
-		return acctId;
+	public String getUserKey() {
+		return userKey;
 	}
 
-	public void setAcctId(String acctId) {
-		this.acctId = acctId;
+	public void setUserKey(String uKey) {
+		this.userKey = uKey;
 	}
 
 	public DataAccessMethods (IAerospikeClient db, String keySpace, String lockSpace){
 		this.database = db;
 		this.nameSpace = keySpace;
 		this.lockNameSpace = lockSpace;
-		this.acctId = null;
+		this.userKey = null;
 	}
 	
 	@SuppressWarnings("unchecked")
 	// return null if the record is not found
 	public DataNode retrieveHead( String acctId) {
-		this.setAcctId(acctId);
-		Map<String, DataNode> transactionGraph;
+		this.setUserKey(acctId);
 		Key key = new Key(nameSpace, "toprecords", acctId);
 		Record record = database.get(null, key);
 		if (record == null) {
@@ -71,16 +67,16 @@ public class DataAccessMethods {
 	}
 	
 	/**
-	 * retrieves the n most recent transactions or null if the record is not found
+	 * retrieves the n most recent elements or null if the record is not found
 	 * 
-	 * the number of transactions returned could exceed the top record and go into the overflow records
+	 * the number of elements returned could exceed the top record and go into the overflow records
 	 * there is logic to traverse the overflow nodes in order to return all the desired nodes
 	 */
-	public ArrayList<DataNode> retrievRecentTransactions( String acctId, int numTrans ){
+	public ArrayList<DataNode> retrievRecentElements( String uKey, int numElts ){
 	
 		HashMap<String, DataNode> dataGraph =null;
-		this.setAcctId(acctId);
-		Key key = new Key(nameSpace, "toprecords", acctId);
+		this.setUserKey(uKey);
+		Key key = new Key(nameSpace, "toprecords", uKey);
 		Record record = database.get(null, key);
 		if (record == null){
 			return (null);
@@ -98,19 +94,19 @@ public class DataAccessMethods {
 		ArrayList<DataNode> retList = new ArrayList<DataNode>();
 		int count;
 		curNode = dataGraph.get(record.getString("head"));
-		//curNode = transactionGraph.get("Wed Dec 27 17:52:15 PST 2017");
-		//System.out.println(transactionGraph.size() + "total trnas");
+		//curNode = dataGraph.get("Wed Dec 27 17:52:15 PST 2017");
+		//System.out.println(dataGraph.size() + "total elements");
 
 
-		for (count = 0; count < numTrans && curNode != null; count++) {
+		for (count = 0; count < numElts && curNode != null; count++) {
 			retList.add(curNode);
-			tmpNode = dataGraph.get(curNode.getPreviousTxnId());
+			tmpNode = dataGraph.get(curNode.getPreviousEltId());
 			if (tmpNode == null && subRecordCount <= overflow) {
-				String subRecId = new String(acctId + "-" + overflow--);
+				String subRecId = new String(uKey + "-" + overflow--);
 				key = new Key(nameSpace, "subrecords", subRecId);
 				record = database.get(null, key);
 				dataGraph = topRecMapper.buildGraphFromDB(record);;
-				tmpNode = dataGraph.get(curNode.getPreviousTxnId());
+				tmpNode = dataGraph.get(curNode.getPreviousEltId());
 				//System.out.println("read in subRecord");
 			}
 			curNode = tmpNode;
@@ -122,7 +118,7 @@ public class DataAccessMethods {
 	}
 
 	public void insertTest(String acctId, DataNode txn) {
-		this.setAcctId(acctId);
+		this.setUserKey(acctId);
 		TopRecordMapper topRecMapper = new TopRecordMapper();
 		TopRecord topRec = null;
 		Key key = new Key(nameSpace, "toprecords", acctId);
@@ -130,8 +126,8 @@ public class DataAccessMethods {
 		Record record = database.get(null, key);
 		if (record == null) {	// record does not exist, so create
 			topRec = new TopRecord( database, nameSpace);
-			topRec.setAccountId(acctId);
-			this.acctId = acctId;
+			topRec.setUserKey(acctId);
+			this.userKey = acctId;
 			topRec.setDateOpened(new Date());
 			topRec.setNameOnAccount(new String("Test Name"));
 		}
@@ -144,9 +140,9 @@ public class DataAccessMethods {
 		
 		ArrayList <DataNode> insertNodes;
 		
-		insertNodes = insertTransaction(topRec, txn);
+		insertNodes = insertElement(topRec, txn);
 		insertBranch(topRec,insertNodes);
-		topRec.setHead(insertNodes.get(insertNodes.size()-1).getTxnId());
+		topRec.setHead(insertNodes.get(insertNodes.size()-1).getEltId());
 		database.put(null, key, topRecMapper.toRecord(topRec));
 		
 		// delete (if exists) the overflow record lock
@@ -157,24 +153,24 @@ public class DataAccessMethods {
 	}
 
 	/*
-	 * Insert a new transaction,
+	 * Insert a new data node,
 	 * If the record does not exist
 	 * 		create the record
-	 * insert the transaction
+	 * insert the data node
 	 */
 	
-	public void insertNewTxn(String acctId, double amt) {
-		this.setAcctId(acctId);
+	public void insertNewDataNode(String uKey, double amt) {
+		this.setUserKey(uKey);
 		
 		TopRecord topRec = null;
 		TopRecordMapper topRecMapper = new TopRecordMapper();
-		Key key = new Key(nameSpace, "toprecords", acctId);
-		Key scKey = new Key(lockNameSpace, "lockset", acctId);
+		Key key = new Key(nameSpace, "toprecords", uKey);
+		Key scKey = new Key(lockNameSpace, "lockset", uKey);
 		Record record = database.get(null, key);
 		if (record == null) {	// record does not exist, so create
 			topRec = new TopRecord( database, nameSpace);
-			topRec.setAccountId(acctId);
-			this.acctId = acctId;
+			topRec.setUserKey(uKey);
+			this.userKey = uKey;
 			topRec.setDateOpened(new Date());
 			topRec.setNameOnAccount(new String("Test Name"));
 		}
@@ -189,16 +185,16 @@ public class DataAccessMethods {
 		topRec.setLockNameSpace(lockNameSpace);
 		ArrayList <DataNode> insertNodes;
 		DataNode dNode;
-		String txnId;
+		String eltId;
 		Date currentDate = new Date();
 		
-		txnId = currentDate.toString();								
-		dNode = new DataNode(txnId, (float)0, currentDate);
-		dNode.setTxnAmt(amt);
+		eltId = currentDate.toString();								
+		dNode = new DataNode(eltId, (float)0, currentDate);
+		dNode.setEltValue(amt);
 		
-		insertNodes = insertTransaction(topRec, dNode);
+		insertNodes = insertElement(topRec, dNode);
 		insertBranch(topRec, insertNodes);
-		topRec.setHead(insertNodes.get(insertNodes.size()-1).getTxnId());
+		topRec.setHead(insertNodes.get(insertNodes.size()-1).getEltId());
 		database.put(null, key, topRecMapper.toRecord(topRec));
 		
 		// delete (if exists) the overflow record lock
@@ -209,11 +205,11 @@ public class DataAccessMethods {
 	
 	
 	/*
-	 * return the specified transaction or null if the record does not exist
-	 *  the txnDate needs to be a string in the form "yyyyMMddhhmmss"
+	 * return the specified element or null if the record does not exist
+	 *  the eltDate needs to be a string in the form "yyyyMMddhhmmss"
 	 */
-	public DataNode retreiveTransaction( String acctId, String txnId, String txnDate ){
-		Key key = new Key(nameSpace, "toprecords", acctId);
+	public DataNode retreiveElement( String uKey, String eltId, String eltDate ){
+		Key key = new Key(nameSpace, "toprecords", uKey);
 		Record record = database.get(null, key);
 		if ( record == null ) {
 			return( null );
@@ -223,31 +219,31 @@ public class DataAccessMethods {
 		topRec.setDatabase(database);
 		topRec.setNamespace(nameSpace);
 		
-		DataNode txn = topRec.getTransaction(txnId, txnDate);
+		DataNode dNode = topRec.getElement(eltId, eltDate);
 		
-		return (txn);
+		return (dNode);
 	}
 
 	/*
-	 * used to insert a new transaction
+	 * used to insert a new element
 	 */
-	public ArrayList<DataNode> insertTransaction(TopRecord topRec, DataNode newTxn) {
+	public ArrayList<DataNode> insertElement(TopRecord topRec, DataNode newElt) {
 		ArrayList <DataNode> insertNodeList = new ArrayList<DataNode>();
 		
-		checkSCLock(acctId);
+		checkSCLock(userKey);
 		// first node
-		if (topRec.getTransactionGraph().isEmpty()) {
+		if (topRec.getDataGraph().isEmpty()) {
 			
-			topRec.initializeMappers (newTxn);
+			topRec.initializeMappers (newElt);
 		}
-		insertNodeList.add(newTxn);	
+		insertNodeList.add(newElt);	
 			
 		return insertNodeList;	
 		
 	}
 	
 	/*
-	 * calculate the space needed for the new transaction list and create an overflow SubRecord if needed
+	 * calculate the space needed for the new element list and create an overflow SubRecord if needed
 	 * insertNodes: the nodes are in insertion order. I.E. the first node in the list is the farthest back in time
 	 * 
 	 * What happens if the new branch will exceed the the RECORD_SIZE, this is currently not handled
@@ -256,10 +252,10 @@ public class DataAccessMethods {
 		int numNewNodes = insertNodes.size();
 		boolean didOverflow = false;
 		//long numBytesTxn = ObjectSizeFetcher.getObjectSize(insertNodes.get(0));
-		int sizeOfMappers = MAPPERS_SIZE * topRec.getTxnIdMapper().size();
-		long currObjSz = SIZEOF_TRANS_NODE * topRec.getTransactionGraph().size() + sizeOfMappers + T_RECORD_SIZE;
+		int sizeOfMappers = MAPPERS_SIZE * topRec.getEltIdMapper().size();
+		long currObjSz = SIZEOF_ELEMENT_NODE * topRec.getDataGraph().size() + sizeOfMappers + T_RECORD_SIZE;
 		
-		int additionalSize = numNewNodes * SIZEOF_TRANS_NODE;
+		int additionalSize = numNewNodes * SIZEOF_ELEMENT_NODE;
 		
 		Iterator itr = insertNodes.iterator();
 		DataNode curNode;
@@ -269,10 +265,10 @@ public class DataAccessMethods {
 			 * create an entry in the strong consistency namespace
 			 * 
 			 * create a SUBRECORD with the right naming
-			 * copy transactionGraph into SubRecord
+			 * copy dataGraph into SubRecord
 			 * put SubRecord
 			 *
-			 * delete contents of transactionGraph
+			 * delete contents of dataGraph
 			 * insert new node list
 			 * update the mappers in topRecord
 			 */
@@ -281,37 +277,37 @@ public class DataAccessMethods {
 			didOverflow = true;
 			createSCLock();
 			
-			SubRecord subRec = new SubRecord(topRec.getTransactionGraph(), topRec.getHead());
-			String newAcctId = topRec.getTxnIdMapper().get(topRec.getTxnIdMapper().size()-1).get(0);  
+			SubRecord subRec = new SubRecord(topRec.getDataGraph(), topRec.getHead());
+			String newUserKey = topRec.getEltIdMapper().get(topRec.getEltIdMapper().size()-1).get(0);  
 			topRec.incrementNumOverflow();
 
 			
-			if (newAcctId.contains("-") ){
-				String []split = newAcctId.split("-");
+			if (newUserKey.contains("-") ){
+				String []split = newUserKey.split("-");
 				int suffix =Integer.parseInt(split[1]) + 1;
-				newAcctId = split[0] + "-" + suffix;
+				newUserKey = split[0] + "-" + suffix;
 			
 				
 			}
 			else {		// first subRecord
-				newAcctId += "-1";
+				newUserKey += "-1";
 			}
-			Key key = new Key(nameSpace, "subrecords", newAcctId);
+			Key key = new Key(nameSpace, "subrecords", newUserKey);
 			
 			this.database.put(null, key, mapper.toRecord(subRec));
 			
-			topRec.getTransactionGraph().clear();
-			topRec.updateOverFlowMappers(newAcctId);
+			topRec.getDataGraph().clear();
+			topRec.updateOverFlowMappers(newUserKey);
 			topRec.initializeMappers(insertNodes.get(0));
 			insertNodes.get(0).setPreviousPaths(topRec.getHead()); 		// set the previous points
 			
 			
 		}
-		// insert the insertnodes into the TopRecord transactionGraph
+		// insert the insertnodes into the TopRecord dataGraph
 		// insertNodes: the nodes are in insertion order. I.E. the first node in the list is the farthest back in time
 		while (itr.hasNext()){
 			curNode = (DataNode) itr.next();
-			topRec.getTransactionGraph().put(curNode.getTxnId(), curNode);
+			topRec.getDataGraph().put(curNode.getEltId(), curNode);
 		}
 			
 		
@@ -323,7 +319,7 @@ public class DataAccessMethods {
 	}
 	
 	public void createSCLock() {
-		Key scKey = new Key(lockNameSpace, "lockset", acctId);
+		Key scKey = new Key(lockNameSpace, "lockset", userKey);
 		Bin scBin = new Bin("lock", 1);
 		
 		try {
@@ -335,7 +331,7 @@ public class DataAccessMethods {
 	}
 	
 	public void removeSCLock() {
-		Key scKey = new Key(lockNameSpace, "lockset", acctId);
+		Key scKey = new Key(lockNameSpace, "lockset", userKey);
 		if (this.database.exists(null, scKey)) {
 			this.database.delete(null, scKey);
 		}
@@ -350,8 +346,8 @@ public class DataAccessMethods {
 		BLOCK_MULTIPLIER = (bLOCK_MULTIPLIER > 8 ? 8 : bLOCK_MULTIPLIER);
 	}
 
-	private void checkSCLock(String accountId) {
-		Key scKey = new Key(lockNameSpace, "lockset", accountId);
+	private void checkSCLock(String uKey) {
+		Key scKey = new Key(lockNameSpace, "lockset", uKey);
 		boolean status;
 		try {
 			status = this.database.exists(null, scKey);
