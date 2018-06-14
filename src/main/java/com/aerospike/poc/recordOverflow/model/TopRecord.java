@@ -173,6 +173,11 @@ public class TopRecord {
 	 * Use eltIdMapper if the element IDs are sequential, Use arrMapper otherwise
 	 */
 	public void updateMappers(DataNode newElt) {
+		
+		if ( eltIdMapper.isEmpty()) {
+			initializeMappers(newElt);
+			return;
+		}
 		ArrayList<String> insertList = eltIdMapper.get(0);
 		
 		if (insertList.size() >= 3){

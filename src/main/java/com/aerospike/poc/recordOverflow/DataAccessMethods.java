@@ -172,7 +172,7 @@ public class DataAccessMethods {
 			topRec.setUserKey(uKey);
 			this.userKey = uKey;
 			topRec.setDateOpened(new Date());
-			topRec.setNameOnAccount(new String("Test Name"));
+			topRec.setNameOnAccount(topRec.getUserKey());
 		}
 		else {
 			

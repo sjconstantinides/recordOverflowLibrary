@@ -88,7 +88,7 @@ public class TopRecordMapper {
 	 */
 	public HashMap<String, DataNode> buildGraphFromDB(Record record) {
 		HashMap<String, DataNode> retGraph = new HashMap<String, DataNode>();
-		Map <String, Map<String, Object>> graph = ( Map<String, Map<String, Object>>)record.getMap("txnGraph");
+		Map <String, Map<String, Object>> graph = ( Map<String, Map<String, Object>>)record.getMap("dataGraph");
 		Iterator<Map<String, Object>> graphItr = graph.values().iterator();
 		DataNode curNode;
 		DataNodeMapper tMapper = new DataNodeMapper();

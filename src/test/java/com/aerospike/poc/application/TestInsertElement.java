@@ -45,10 +45,10 @@ public class TestInsertElement {
 	public void testValidElement() {
 		DataNode txn;
 		double balance;
-		txn = dam.retrieveHead("202751241");
+		txn = dam.retrieveHead("testRecord0");
 		balance = txn.getSum();
-		dam.insertNewDataNode("202751241", 35.0);
-		txn = dam.retrieveHead("202751241");
+		dam.insertNewDataNode("testRecord0", 35.0);
+		txn = dam.retrieveHead("testRecord0");
 	
 		assert(txn.getSum() == balance + 35.0);
 	}
