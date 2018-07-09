@@ -92,7 +92,7 @@ public class testDriver {
 			if (reset) {
 				database.truncate(null, namespace, "toprecords", null);
 				database.truncate(null, namespace, "subrecords", null);
-				database.truncate(null, namespace, "lockset", null);
+				database.truncate(null, lockNameSpace, "lockset", null);
 
 				database.truncate(null,namespace, "customers", null);
 			}

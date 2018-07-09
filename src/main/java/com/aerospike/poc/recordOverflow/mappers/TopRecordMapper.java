@@ -39,16 +39,14 @@ public class TopRecordMapper {
 		if (record != null) {
 			result = new TopRecord();
 			result.setNumOverflow(record.getInt("overflow"));
-			result.setNameOnAccount(record.getString("name"));
 			result.setUserKey(record.getString("userKey"));
-			result.setDateOpened(new Date(record.getLong("opened")));
 	
 			result.setEltIdMapper((ArrayList<ArrayList<String>>)record.getList("eltIdMapper"));
 			result.setArrMapper((ArrayList<ArrayList<String>>)record.getList("arrMapper"));
 			inGraph = buildGraphFromDB(record);
 			result.setDataGraph(inGraph);
 			result.setHead(record.getString("head"));
-			result.setCompensatingNodeIdx(record.getInt("compNodeIdx"));
+			
 			
 		}
 		return result;
@@ -66,14 +64,12 @@ public class TopRecordMapper {
 		
 		List<Bin> elements = new ArrayList<Bin>();
 		elements.add(new Bin("overflow", Value.get(account.getNumOverflow())));
-		elements.add(new Bin("name", Value.get(account.getNameOnAccount())));
 		elements.add(new Bin("userKey", Value.get(account.getUserKey())));
-		elements.add(new Bin("opened", Value.get(account.getDateOpened().getTime())));
 		elements.add(new Bin("eltIdMapper", Value.get(account.getEltIdMapper())));
 		elements.add(new Bin("arrMapper", Value.get(account.getArrMapper())));
 		elements.add(dGraph);
 		elements.add(new Bin("head", Value.get(account.getHead())));
-		elements.add(new Bin("compNodeIdx", Value.get(account.getCompensatingNodeIdx())));
+		
 		
 	
 		

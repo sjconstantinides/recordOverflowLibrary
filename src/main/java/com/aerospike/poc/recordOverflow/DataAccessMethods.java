@@ -128,8 +128,6 @@ public class DataAccessMethods {
 			topRec = new TopRecord( database, nameSpace);
 			topRec.setUserKey(acctId);
 			this.userKey = acctId;
-			topRec.setDateOpened(new Date());
-			topRec.setNameOnAccount(new String("Test Name"));
 		}
 		else {
 			
@@ -171,8 +169,6 @@ public class DataAccessMethods {
 			topRec = new TopRecord( database, nameSpace);
 			topRec.setUserKey(uKey);
 			this.userKey = uKey;
-			topRec.setDateOpened(new Date());
-			topRec.setNameOnAccount(topRec.getUserKey());
 		}
 		else {
 			

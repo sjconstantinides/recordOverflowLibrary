@@ -31,16 +31,13 @@ import com.aerospike.poc.recordOverflow.mappers.TopRecordMapper;
 public class TopRecord {
 
 	private int numOverflow;
-	private String nameOnAccount;
-	private Date dateOpened;
 
-	
 	private String userKey;			// SJC 
 	private ArrayList<ArrayList<String>> eltIdMapper;
 	private ArrayList<ArrayList<String>> arrMapper;
 	private Map<String,DataNode> dataGraph;
 	private String head;		// key to the head DataNode of the graph
-	private int compensatingNodeIdx;		// only used for testing
+	
 	
 	private final String binName = "dataGraph";
 	private MapOperation mapOpp = new MapOperation();
@@ -52,20 +49,13 @@ public class TopRecord {
 	private String keySpace;
 	private String lockNameSpace;
 	
-	public int getCompensatingNodeIdx() {
-		return compensatingNodeIdx;
-	}
-
-	public void setCompensatingNodeIdx(int compensatingNodeIdx) {
-		this.compensatingNodeIdx = compensatingNodeIdx;
-	}
+	
 
 	public TopRecord(){
 		eltIdMapper = new ArrayList< ArrayList< String>>();
 		arrMapper = new ArrayList< ArrayList< String >>();
 		dataGraph = new HashMap<String, DataNode>();
 		head = null;
-		compensatingNodeIdx = 1;
 		numOverflow = 0;
 		dGraph = new Bin(binName, dataGraph);
 		mapPolicy = new MapPolicy(MapOrder.KEY_ORDERED, MapWriteMode.UPDATE);
@@ -103,24 +93,14 @@ public class TopRecord {
 	public void setNumOverflow(int number) {
 		this.numOverflow = number;
 	}
-	public String getNameOnAccount() {
-		return nameOnAccount;
-	}
-	public void setNameOnAccount(String nameOnAccount) {
-		this.nameOnAccount = nameOnAccount;
-	}
+
 	public String getUserKey() {
 		return userKey;
 	}
 	public void setUserKey(String uKey) {
 		this.userKey = uKey;
 	}
-	public Date getDateOpened() {
-		return dateOpened;
-	}
-	public void setDateOpened(Date dateOpened) {
-		this.dateOpened = dateOpened;
-	}
+
 	public ArrayList<ArrayList<String>> getEltIdMapper() {
 		return eltIdMapper;
 	}

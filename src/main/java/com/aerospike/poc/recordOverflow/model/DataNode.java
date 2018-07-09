@@ -43,14 +43,6 @@ public class DataNode {
 		// TODO Auto-generated constructor stub
 	}
 
-	public void create() {
-		this.setEltId("DBTRAN25");
-		this.setSum((float)257.30);
-		this.setEltValue((float)35.70);
-		this.setArrivalTime("20170919");
-
-	}
-
 
 	public long valueToSortBy() {
 		return arrivalDate;
